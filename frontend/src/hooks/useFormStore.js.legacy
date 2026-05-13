@@ -1,0 +1,157 @@
+/**
+ * Estado global del formulario usando useReducer.
+ *
+ * Separa los campos simples (scalares) de los sub-registros (arrays).
+ * Provee helpers para actualizar, agregar y eliminar subregistros.
+ */
+
+import { useReducer, useCallback } from 'react'
+
+const INITIAL_STATE = {
+  // Identificación
+  n1_facultad: '',
+  n2_nombre_programa: '',
+  n3_modalidad: '',
+  n4_nivel_formacion: '',
+  n5_periodicidad: '',
+
+  // Dimensión 1 – Créditos
+  n6_creditos_totales: '0',
+  n7_creditos_especificos: '0',
+  n8_creditos_electivos: '0',
+  n10_creditos_prerrequisito: '0',
+  n11_creditos_correquisito: '0',
+
+  // Dimensión 2 – Núcleo común
+  n12_tiene_nucleo_comun: '',
+  n13_creditos_nucleo_facultad: '0',
+  n13_1_observacion: '',
+  n14_programa_en_nucleo: '',
+  n15_creditos_nucleo_programa: '0',
+  n16_razones_no_nucleo: '',
+
+  // Dimensión 2 – Homologaciones (sub-registros)
+  hom_mismo_nivel_int: [],   // { nombre_programa, creditos_homologables }
+  hom_nivel_sup_int: [],
+  hom_mismo_nivel_ext: [],
+  hom_nivel_sup_ext: [],
+
+  // Dimensión 3
+  cursos_trabajo_comunidad: [],   // { nombre_curso, creditos }
+
+  // Dimensión 4
+  cursos_investigacion: [],
+
+  // Modalidades de grado (checkboxes n27)
+  n27_inv_grupo_investigacion: false,
+  n27_inv_ponencias_semillero: false,
+  n27_inv_trabajo_grado: false,
+  n27_ps_proyecto_impacto_social: false,
+  n27_ps_sistematizacion: false,
+  n27_ps_educacion_continua: false,
+  n27_ps_cursos_posgrado: false,
+  n27_ps_certificaciones: false,
+  n27_ps_movilidad_internacional: false,
+
+  // Dimensión 5 (solo Presencial)
+  cursos_virtuales: [],   // { nombre_curso, creditos, horas_virtuales }
+  cursos_hibridos: [],    // { nombre_curso, creditos, horas_sincronicas, horas_presenciales }
+
+  // Finales
+  n32_convenios_doble_titulacion: '0',
+  n33_observacion_general: '',
+}
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'SET_FIELD':
+      return { ...state, [action.field]: action.value }
+
+    case 'ADD_SUBRECORD':
+      return {
+        ...state,
+        [action.arrayField]: [...state[action.arrayField], action.item],
+      }
+
+    case 'UPDATE_SUBRECORD': {
+      const arr = state[action.arrayField].map((item, i) =>
+        i === action.index ? { ...item, [action.key]: action.value } : item
+      )
+      return { ...state, [action.arrayField]: arr }
+    }
+
+    case 'REMOVE_SUBRECORD': {
+      const arr = state[action.arrayField].filter((_, i) => i !== action.index)
+      return { ...state, [action.arrayField]: arr }
+    }
+
+    case 'RESET':
+      return INITIAL_STATE
+
+    default:
+      return state
+  }
+}
+
+export function useFormStore() {
+  const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
+
+  const setField = useCallback((field, value) => {
+    dispatch({ type: 'SET_FIELD', field, value })
+  }, [])
+
+  const addSubrecord = useCallback((arrayField, item) => {
+    dispatch({ type: 'ADD_SUBRECORD', arrayField, item })
+  }, [])
+
+  const updateSubrecord = useCallback((arrayField, index, key, value) => {
+    dispatch({ type: 'UPDATE_SUBRECORD', arrayField, index, key, value })
+  }, [])
+
+  const removeSubrecord = useCallback((arrayField, index) => {
+    dispatch({ type: 'REMOVE_SUBRECORD', arrayField, index })
+  }, [])
+
+  const reset = useCallback(() => dispatch({ type: 'RESET' }), [])
+
+  // Derivados computados (equivalentes a GENERATED ALWAYS en SQL)
+  const n9_comp1 =
+    (parseInt(state.n6_creditos_totales) || 0) -
+    (parseInt(state.n7_creditos_especificos) || 0) -
+    (parseInt(state.n8_creditos_electivos) || 0)
+
+  const n28_num_modalidades_inv =
+    [state.n27_inv_grupo_investigacion, state.n27_inv_ponencias_semillero, state.n27_inv_trabajo_grado]
+      .filter(Boolean).length
+
+  const n29_num_modalidades_ps =
+    [
+      state.n27_ps_proyecto_impacto_social, state.n27_ps_sistematizacion,
+      state.n27_ps_educacion_continua, state.n27_ps_cursos_posgrado,
+      state.n27_ps_certificaciones, state.n27_ps_movilidad_internacional,
+    ].filter(Boolean).length
+
+  // Serialización para enviar al backend
+  const toApiPayload = () => ({
+    ...state,
+    n6_creditos_totales: parseInt(state.n6_creditos_totales) || 0,
+    n7_creditos_especificos: parseInt(state.n7_creditos_especificos) || 0,
+    n8_creditos_electivos: parseInt(state.n8_creditos_electivos) || 0,
+    n10_creditos_prerrequisito: parseInt(state.n10_creditos_prerrequisito) || 0,
+    n11_creditos_correquisito: parseInt(state.n11_creditos_correquisito) || 0,
+    n13_creditos_nucleo_facultad: parseInt(state.n13_creditos_nucleo_facultad) || 0,
+    n15_creditos_nucleo_programa: parseInt(state.n15_creditos_nucleo_programa) || 0,
+    n32_convenios_doble_titulacion: Math.max(0, parseInt(state.n32_convenios_doble_titulacion) || 0),
+  })
+
+  return {
+    state,
+    setField,
+    addSubrecord,
+    updateSubrecord,
+    removeSubrecord,
+    reset,
+    derived: { n9_comp1, n28_num_modalidades_inv, n29_num_modalidades_ps },
+    toApiPayload,
+  }
+}
