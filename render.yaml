@@ -20,7 +20,7 @@ services:
     name: flexibilidad-curricular-frontend
     rootDir: frontend
     buildCommand: npm install && npm run build
-    publishDir: dist
+    staticPublishPath: dist
     envVars:
       - key: NODE_VERSION
         value: "20"
