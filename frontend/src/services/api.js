@@ -3,7 +3,8 @@
  * El proxy de Vite redirige /api → http://localhost:8000/api
  */
 
-const BASE = '/api/v1'
+const API_BASE = import.meta.env.VITE_API_URL || ''
+const BASE = `${API_BASE}/api/v1`
 
 async function request(url, method, body) {
   const options = { method }
